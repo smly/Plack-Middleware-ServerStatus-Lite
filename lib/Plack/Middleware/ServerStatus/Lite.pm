@@ -6,13 +6,16 @@ use parent qw(Plack::Middleware);
 use Plack::Util::Accessor qw(scoreboard path allow);
 use Parallel::Scoreboard;
 use Net::CIDR::Lite;
+use IPC::Shareable;
 use Try::Tiny;
 
-our $VERSION = '0.01';
+our $VERSION = '0.01.20110715';
 
 sub prepare_app {
     my $self = shift;
-    $self->{uptime} = time;
+    $self->{uptime}   = time;
+    $self->{ipc_glue} = 'access_count';
+    $self->{req}      = 0;
 
     if ( $self->allow ) {
         my $cidr = Net::CIDR::Lite->new();
@@ -39,6 +42,13 @@ sub call {
             $self->_handle_server_status($env);
         }
         else {
+            eval {
+                tie my $shm_counter, 'IPC::Shareable', $self->{ipc_glue},
+                    { create => 'yes', exclusive => 0, mode => 0644, destroy => 0 };
+                (tied $shm_counter)->shlock;
+                ++$shm_counter;
+                (tied $shm_counter)->shunlock;
+            };
             $self->app->($env);
         }
     } catch {
@@ -61,7 +71,7 @@ sub set_state {
                           $env->{REQUEST_METHOD}, $env->{REQUEST_URI}, $env->{SERVER_PROTOCOL});
     }
     $self->{__scoreboard}->update(
-        sprintf("%s %s",$status, $prev)
+        sprintf("%s %d %s",$status, time, $prev)
     );
 }
 
@@ -71,8 +81,14 @@ sub _handle_server_status {
     if ( ! $self->allowed($env->{REMOTE_ADDR}) ) {
         return [403, ['Content-Type' => 'text/plain'], [ 'Forbidden' ]];
     }
-
+    my $access_count;
+    eval {
+        tie my $shm_counter, 'IPC::Shareable', $self->{ipc_glue},
+            { create => 'yes', exclusive => 0, mode => 0644, destroy => 0 };
+        $access_count = ++$shm_counter;
+    };
     my $body="Uptime: $self->{uptime}\n";
+    $body .= "Total Accesses: $access_count\n";
     if ( my $scoreboard = $self->{__scoreboard} ) {
         my $stats = $scoreboard->read_all();
         my $raw_stats='';
@@ -90,13 +106,19 @@ sub _handle_server_status {
         }
 
         for my $pid ( @all_workers  ) {
+            my $status_line = $stats->{$pid};
+            my $ss = 0;
             if ( exists $stats->{$pid} && $stats->{$pid} =~ m!^A! ) {
                 $busy++;
             }
             else {
                 $idle++;
             }
-            $raw_stats .= sprintf "%s %s\n", $pid, $stats->{$pid} || '.';
+            if (exists $stats->{$pid} && $stats->{$pid} =~ m/^([A_])\s(\d+)\s(.+)$/ ) {
+                $ss = time - $2;
+                $status_line = sprintf "%s SS=%d %s", $1, $ss, $3;
+            }
+            $raw_stats .= sprintf "%s %s\n", $pid, $status_line || '.';
         }
         $body .= <<EOF;
 BusyWorkers: $busy
