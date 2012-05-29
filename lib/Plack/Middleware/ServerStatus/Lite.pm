@@ -3,9 +3,10 @@ package Plack::Middleware::ServerStatus::Lite;
 use strict;
 use warnings;
 use parent qw(Plack::Middleware);
-use Plack::Util::Accessor qw(scoreboard path allow);
+use Plack::Util::Accessor qw(scoreboard path allow display_ss display_totalaccess);
 use Parallel::Scoreboard;
 use Net::CIDR::Lite;
+use IPC::Shareable;
 use Try::Tiny;
 use JSON;
 
@@ -13,7 +14,8 @@ our $VERSION = '0.06';
 
 sub prepare_app {
     my $self = shift;
-    $self->{uptime} = time;
+    $self->{uptime}   = time;
+    $self->{ipc_glue} = 'access_count';
 
     if ( $self->allow ) {
         my $cidr = Net::CIDR::Lite->new();
@@ -42,6 +44,15 @@ sub call {
             $self->set_state("_");
         }
         else {
+            eval {
+                tie my $shm_counter, 'IPC::Shareable', $self->{ipc_glue},
+                { create => 'yes', exclusive => 0, mode => 644, destroy => 0 };
+
+                (tied $shm_counter)->shlock;
+                ++$shm_counter;
+                (tied $shm_counter)->shunlock;
+            };
+
             my $app_res = $self->app->($env);
 
             if ( ref $app_res eq 'ARRAY' ) {
@@ -86,7 +97,7 @@ sub set_state {
                           $env->{REQUEST_METHOD}, $env->{REQUEST_URI}, $env->{SERVER_PROTOCOL});
     }
     $self->{__scoreboard}->update(
-        sprintf("%s %s",$status, $prev)
+        sprintf("%s %d %s",$status, time, $prev)
     );
 }
 
@@ -96,6 +107,12 @@ sub _handle_server_status {
     if ( ! $self->allowed($env->{REMOTE_ADDR}) ) {
         return [403, ['Content-Type' => 'text/plain'], [ 'Forbidden' ]];
     }
+
+    my $access_count;
+    eval {
+        tie my $shm_counter, 'IPC::Shareable', $self->{ipc_glue},
+        { create => 'yes', exclusive => 0, mode => 0644, destroy => 0 };
+    };
 
     my $upsince = time - $self->{uptime};
     my $duration = "";
@@ -110,6 +127,7 @@ sub _handle_server_status {
     $duration .= "$upsince seconds";
 
     my $body="Uptime: $self->{uptime} ($duration)\n";
+    $body .= "Total Accesses: $access_count\n";
     my %stats = ( 'Uptime' => $self->{uptime} );
     if ( my $scoreboard = $self->{__scoreboard} ) {
         my $stats = $scoreboard->read_all();
@@ -135,7 +153,13 @@ sub _handle_server_status {
             else {
                 $idle++;
             }
-            $raw_stats .= sprintf "%s %s\n", $pid, $stats->{$pid} || '.';
+            my $status_line = $stats->{$pid};
+            my $worksince = 0;
+            if ( exists $stats->{$pid} && $stats->{$pid} =~ m/^([A_])\s(\d+)\s(.+)$/ ) {
+                my $ss = time - $2;
+                $status_line = sprintf "%s SS=%d %s", $1, $ss, $3;
+            }
+            $raw_stats .= sprintf "%s %s\n", $pid, $status_line || '.';
             my @pstats = split /\s/, $stats->{$pid} || '.';
             push @raw_stats, {
                 pid => $pid,

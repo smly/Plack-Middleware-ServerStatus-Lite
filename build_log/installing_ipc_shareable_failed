@@ -1,0 +1,71 @@
+cpanm (App::cpanminus) 1.4005 on perl 5.014000 built for darwin-thread-multi-2level
+Work directory is /Users/smly/.cpanm/work/1338333882.30456
+You have make /usr/bin/make
+You have LWP 6.02
+You have /usr/bin/tar: bsdtar 2.6.2 - libarchive 2.6.2
+You have /usr/bin/unzip
+Searching IPC::Shareable on cpanmetadb ...
+--> Working on IPC::Shareable
+Fetching http://search.cpan.org/CPAN/authors/id/B/BS/BSUGARS/IPC-Shareable-0.60.tar.gz
+-> OK
+Unpacking IPC-Shareable-0.60.tar.gz
+Entering IPC-Shareable-0.60
+META.yml not found or unparsable. Fetching META.yml from search.cpan.org
+Configuring IPC-Shareable-0.60
+Running Makefile.PL
+Checking if your kit is complete...
+Looks good
+Writing Makefile for IPC::Shareable
+Writing MYMETA.yml and MYMETA.json
+-> OK
+Checking dependencies from MYMETA.yml ...
+Finding PREREQ from Makefile ...
+Checking if you have Storable 0.607 ... Yes (2.27)
+Checking if you have ExtUtils::MakeMaker 0 ... Yes (6.62)
+Checking if you have Storable 0.607 ... Yes (2.27)
+Building and testing IPC-Shareable-0.6
+cp lib/IPC/Shareable.pm blib/lib/IPC/Shareable.pm
+cp lib/IPC/Shareable/SharedMem.pm blib/lib/IPC/Shareable/SharedMem.pm
+Manifying blib/man3/IPC::Shareable::SharedMem.3
+Manifying blib/man3/IPC::Shareable.3
+PERL_DL_NONLAZY=1 /Users/smly/perl5/perlbrew/perls/perl-5.14.0/bin/perl "-MExtUtils::Command::MM" "-e" "test_harness(0, 'blib/lib', 'blib/arch')" t/*.t
+t/00base.t .... ok
+t/05sv.t ...... ok
+Can't use string ("3") as an ARRAY ref while "strict refs" in use at /Users/smly/.cpanm/work/1338333882.30456/IPC-Shareable-0.60/blib/lib/IPC/Shareable.pm line 455.
+t/10av.t ...... 
+Dubious, test returned 255 (wstat 65280, 0xff00)
+Failed 9/11 subtests 
+t/15hv.t ...... ok
+t/20ref.t ..... ok
+t/25ipc.t ..... ok
+t/30lock.t .... ok
+t/35clean.t ... ok
+t/36ipcav.t ... ok
+Could not obtain semaphore set lock: Interrupted system call
+ at t/38ipchv.t line 32
+Use of uninitialized value in numeric eq (==) at t/38ipchv.t line 85.
+Use of uninitialized value in numeric eq (==) at t/38ipchv.t line 85.
+Use of uninitialized value in numeric eq (==) at t/38ipchv.t line 85.
+Use of uninitialized value in numeric eq (==) at t/38ipchv.t line 85.
+t/38ipchv.t ... 
+Failed 4/5 subtests 
+t/40ipcref.t .. ok
+t/45obj.t ..... ok
+t/50ipcobj.t .. ok
+t/55lsync.t ... ok
+
+Test Summary Report
+-------------------
+t/10av.t    (Wstat: 65280 Tests: 2 Failed: 0)
+  Non-zero exit status: 255
+  Parse errors: Bad plan.  You planned 11 tests but ran 2.
+t/38ipchv.t (Wstat: 0 Tests: 2 Failed: 1)
+  Failed test:  4
+  Parse errors: Tests out of sequence.  Found (4) but expected (1)
+                Tests out of sequence.  Found (5) but expected (2)
+                Bad plan.  You planned 5 tests but ran 2.
+Files=14, Tests=81,  2 wallclock secs ( 0.12 usr  0.07 sys +  1.02 cusr  0.30 csys =  1.51 CPU)
+Result: FAIL
+Failed 2/14 test programs. 1/81 subtests failed.
+make: *** [test_dynamic] Error 255
+-> FAIL Installing IPC::Shareable failed. See /Users/smly/.cpanm/build.log for details.
