@@ -108,10 +108,11 @@ sub _handle_server_status {
         return [403, ['Content-Type' => 'text/plain'], [ 'Forbidden' ]];
     }
 
-    my $access_count;
+    my $access_count = 0;
     eval {
         tie my $shm_counter, 'IPC::Shareable', $self->{ipc_glue},
         { create => 'yes', exclusive => 0, mode => 0644, destroy => 0 };
+        $access_count = $shm_counter;
     };
 
     my $upsince = time - $self->{uptime};
